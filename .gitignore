@@ -42,7 +42,6 @@ nosetests.xml
 *.swp
 .spyderproject
 README.html
-README.txt
 .settings/
 .kateproject*
 venvs
