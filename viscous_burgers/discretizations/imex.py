@@ -27,16 +27,16 @@ class InstationaryImexDiscretization(DiscretizationBase):
                  products=None, parameter_space=None, estimator=None, visualizer=None, cache_region='disk',
                  name=None):        
         assert isinstance(initial_data, (VectorArrayInterface, OperatorInterface))
-        assert not isinstance(initial_data, OperatorInterface) or initial_data.dim_source == 1
+        assert not isinstance(initial_data, OperatorInterface) or initial_data.source.dim == 1
         assert isinstance(explicit_operator, OperatorInterface)
         assert isinstance(implicit_operator, OperatorInterface)
         assert rhs is None or isinstance(rhs, OperatorInterface) and rhs.linear
         assert mass is None or isinstance(mass, OperatorInterface) and mass.linear
         if isinstance(initial_data, VectorArrayInterface):
             initial_data = VectorOperator(initial_data, name='initial_data')
-        assert explicit_operator.dim_source == explicit_operator.dim_range == implicit_operator.dim_source == implicit_operator.dim_range == initial_data.dim_range
-        assert rhs is None or rhs.dim_source == explicit_operator.dim_source and rhs.dim_range == 1
-        assert mass is None or mass.dim_source == mass.dim_range == explicit_operator.dim_source
+        assert explicit_operator.source == explicit_operator.range == implicit_operator.source == implicit_operator.range == initial_data.range
+        assert rhs is None or rhs.source == explicit_operator.source and rhs.range.dim == 1
+        assert mass is None or mass.source == mass.range == explicit_operator.source
 
         operators = {'explicit_operator': explicit_operator, 'implicit_operator': implicit_operator, 'mass': mass}
         functionals = {'rhs': rhs}
@@ -47,14 +47,13 @@ class InstationaryImexDiscretization(DiscretizationBase):
                                                          visualizer=visualizer, cache_region=cache_region, name=name)
         
         self.T = T
+        self.solution_space = explicit_operator.source
         self.nt = nt
         self.initial_data = initial_data
         self.explicit_operator = explicit_operator
         self.implicit_operator = implicit_operator
         self.rhs = rhs
         self.mass = mass
-        self.dim_solution = explicit_operator.dim_range
-        self.type_solution = explicit_operator.type_source
         self.num_values = num_values
         self.build_parameter_type(inherits=(initial_data, explicit_operator, implicit_operator, rhs, mass), provides={'_t': 0})
         self.parameter_space = parameter_space

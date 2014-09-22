@@ -13,7 +13,7 @@ from pymor.operators import OperatorInterface, NumpyMatrixOperator
 def imex_euler(A, D, F, U0, t0, t1, nt, mu):
     assert isinstance(A, OperatorInterface)
     assert isinstance(D, OperatorInterface)
-    assert A.dim_source == A.dim_range == D.dim_source == D.dim_range
+    assert A.source == A.range == D.source == D.range
     A_time_dep = A.parameter_type and '_t' in A.parameter_type
     D_time_dep = D.parameter_type and '_t' in D.parameter_type
     if not D_time_dep:
@@ -21,28 +21,28 @@ def imex_euler(A, D, F, U0, t0, t1, nt, mu):
 
     assert isinstance(F, (OperatorInterface, VectorArrayInterface))
     if isinstance(F, OperatorInterface):
-        assert F.dim_range == 1
-        assert F.dim_source == A.dim_source
+        assert F.range.dim == 1
+        assert F.source == A.source
         F_time_dep = F.parameter_type and '_t' in F.parameter_type
         if not F_time_dep:
             F = F.as_vector(mu)
     else:
         assert len(F) == 1
-        assert F.dim == A.dim_source
+        assert F.dim in A.source
         F_time_dep = False
 
     assert isinstance(U0, VectorArrayInterface)
     assert len(U0) == 1
-    assert U0.dim == A.dim_source
+    assert U0 in A.source
 
     dt = (t1 - t0) / nt
-    R = A.type_source.empty(A.dim_source, reserve=nt+1)
+    R = A.source.empty(reserve=nt+1)
     R.append(U0)
 
     if hasattr(D, 'sparse') and D.sparse:
-        I = NumpyMatrixOperator(scipy.sparse.eye(A.dim_source, A.dim_source))
+        I = NumpyMatrixOperator(scipy.sparse.eye(A.source.dim, A.source.dim))
     else:
-        I = NumpyMatrixOperator(np.eye(A.dim_source))
+        I = NumpyMatrixOperator(np.eye(A.source.dim))
         
     if not D_time_dep:
         dt_D = I + D * dt
