@@ -9,13 +9,14 @@ from functools import partial
 import numpy as np
 
 from analyticalproblems.advection_diffusion import InstationaryAdvectionDiffusionProblem
-from pymor.domaindiscretizers import discretize_domain_default
-from pymor.core import inject_sid
+from discretizations.imex import InstationaryImexDiscretization
+
+from pymor.domaindiscretizers.default import discretize_domain_default
+from pymor.core.interfaces import inject_sid
 from pymor.operators.fv import (nonlinear_advection_lax_friedrichs_operator, nonlinear_advection_engquist_osher_operator, 
                                 DiffusionOperator, DiffusionRHSOperatorFunctional, L2Product)
 from pymor.gui.qt import PatchVisualizer
-from discretizations.imex import InstationaryImexDiscretization
-from pymor.la import NumpyVectorArray
+from pymor.la.numpyvectorarray import NumpyVectorArray
 
 
 def discretize_nonlinear_instationary_advection_diffusion_fv(analytical_problem, diameter=None, nt=100, num_flux='lax_friedrichs',

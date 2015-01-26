@@ -6,8 +6,9 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 import scipy.sparse
-from pymor.la import VectorArrayInterface
-from pymor.operators import OperatorInterface, NumpyMatrixOperator
+from pymor.la.interfaces import VectorArrayInterface
+from pymor.operators.interfaces import OperatorInterface
+from pymor.operators.numpy import NumpyMatrixOperator
 
 
 def imex_euler(A, D, F, U0, t0, t1, nt, mu):

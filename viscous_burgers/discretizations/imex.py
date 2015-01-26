@@ -7,17 +7,14 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
-from pymor.algorithms.timestepping import TimeStepperInterface
-from pymor import defaults
-from pymor.core import abstractmethod
-from pymor.core.cache import cached
+from algorithms.timestepping import imex_euler
+
 from pymor.discretizations.basic import DiscretizationBase
 from pymor.operators.constructions import VectorOperator
-from pymor.la import induced_norm, VectorArrayInterface
-from pymor.tools import method_arguments, FrozenDict
-from pymor.operators import OperatorInterface, ConstantOperator
-from pymor.parameters import Parametric
-from algorithms.timestepping import imex_euler
+from pymor.la.interfaces import VectorArrayInterface
+from pymor.tools.arguments import method_arguments
+from pymor.operators.interfaces import OperatorInterface
+
 
 class InstationaryImexDiscretization(DiscretizationBase):
     

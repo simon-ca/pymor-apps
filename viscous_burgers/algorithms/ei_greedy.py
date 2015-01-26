@@ -9,13 +9,14 @@ import time
 import numpy as np
 from scipy.linalg import solve_triangular
 
-from pymor.core import getLogger
+from reductors.ei_rb import reduce_ei_rb
+
+from pymor.core.logger import getLogger
 from pymor.core.exceptions import ExtensionError
 from pymor.algorithms.basisextension import trivial_basis_extension
 from pymor.algorithms.ei import EvaluationProvider
-from pymor.reductors import reduce_generic_rb
-from reductors.ei_rb import reduce_ei_rb
-from pymor.la import VectorArrayInterface
+from pymor.reductors.basic import reduce_generic_rb
+from pymor.la.interfaces import VectorArrayInterface
 
 
 def ei_rb_greedy(discretization, operator_names, samples, error_norm=None, target_error=None,

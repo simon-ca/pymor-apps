@@ -44,21 +44,20 @@ import sys
 import math as m
 import time
 from functools import partial
-import cProfile, pstats, io
 
 import numpy as np
 from docopt import docopt
 
-import pymor.core as core
-core.logger.MAX_HIERACHY_LEVEL = 2
+from pymor.core import logger
+logger.MAX_HIERACHY_LEVEL = 2
+
 from analyticalproblems.viscous_burgers import ViscousBurgersProblem
 from discretizers.advection_diffusion import discretize_nonlinear_instationary_advection_diffusion_fv
-from pymor.domaindiscretizers import discretize_domain_default
-from pymor.grids import RectGrid
+from pymor.domaindiscretizers.default import discretize_domain_default
+from pymor.grids.rect import RectGrid
 
-
-core.getLogger('pymor.algorithms').setLevel('INFO')
-core.getLogger('pymor.discretizations').setLevel('INFO')
+logger.set_log_levels({'pymor.algorithms': 'INFO',
+                       'pymor.discretizations': 'INFO'})
 
 
 def viscous_burgers_demo(args):

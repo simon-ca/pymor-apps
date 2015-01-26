@@ -7,11 +7,10 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
-import pymor.core as core
-from pymor.tools import Named
-from pymor.domaindescriptions import RectDomain, TorusDomain, BoundaryType
-from pymor.functions import ConstantFunction, GenericFunction
 from analyticalproblems.advection_diffusion import InstationaryAdvectionDiffusionProblem
+
+from pymor.domaindescriptions.basic import RectDomain, TorusDomain, BoundaryType
+from pymor.functions.basic import ConstantFunction, GenericFunction
 from pymor.parameters.spaces import CubicParameterSpace
 
 

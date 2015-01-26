@@ -7,13 +7,12 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
-import pymor.core as core
-from pymor.tools import Named
-from pymor.domaindescriptions import RectDomain
-from pymor.functions import ConstantFunction
+from pymor.core.interfaces import ImmutableInterface
+from pymor.domaindescriptions.basic import RectDomain
+from pymor.functions.basic import ConstantFunction
 
 
-class InstationaryAdvectionDiffusionProblem(core.BasicInterface, Named):
+class InstationaryAdvectionDiffusionProblem(ImmutableInterface):
 
     def __init__(self, domain=RectDomain(), rhs=ConstantFunction(dim_domain=2),
                  flux_function=ConstantFunction(value=np.array([0, 0]), dim_domain=2),
