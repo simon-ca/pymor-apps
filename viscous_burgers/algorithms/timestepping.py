@@ -6,7 +6,7 @@ from __future__ import absolute_import, division, print_function
 
 import numpy as np
 import scipy.sparse
-from pymor.la.interfaces import VectorArrayInterface
+from pymor.vectorarrays.interfaces import VectorArrayInterface
 from pymor.operators.interfaces import OperatorInterface
 from pymor.operators.numpy import NumpyMatrixOperator
 

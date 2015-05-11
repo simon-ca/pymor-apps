@@ -78,21 +78,15 @@ from functools import partial
 import numpy as np
 from docopt import docopt
 
-import pymor.core as core
-core.logger.MAX_HIERACHY_LEVEL = 2
 from analyticalproblems.viscous_burgers import ViscousBurgersProblem
 from discretizers.advection_diffusion import discretize_nonlinear_instationary_advection_diffusion_fv
-from pymor.domaindiscretizers import discretize_domain_default
-from pymor.grids import RectGrid
-from pymor.reductors import reduce_generic_rb, reduce_to_subbasis
-from pymor.algorithms import greedy
+from pymor.domaindiscretizers.default import discretize_domain_default
+from pymor.grids.rect import RectGrid
+from pymor.reductors.basic import reduce_generic_rb, reduce_to_subbasis
+from pymor.algorithms.greedy import greedy
 from pymor.algorithms.basisextension import pod_basis_extension
 from pymor.algorithms.ei import interpolate_operators
-from pymor.la import NumpyVectorArray
-
-
-core.getLogger('pymor.algorithms').setLevel('INFO')
-core.getLogger('pymor.discretizations').setLevel('INFO')
+from pymor.vectorarrays.numpy import NumpyVectorArray
 
 
 def burgers_demo(args):

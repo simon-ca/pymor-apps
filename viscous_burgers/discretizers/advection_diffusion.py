@@ -12,15 +12,18 @@ from analyticalproblems.advection_diffusion import InstationaryAdvectionDiffusio
 from discretizations.imex import InstationaryImexDiscretization
 
 from pymor.domaindiscretizers.default import discretize_domain_default
-from pymor.core.interfaces import inject_sid
-from pymor.operators.fv import (nonlinear_advection_lax_friedrichs_operator, nonlinear_advection_engquist_osher_operator, 
-                                DiffusionOperator, DiffusionRHSOperatorFunctional, L2Product)
+from pymor.operators.fv import (nonlinear_advection_lax_friedrichs_operator,
+                                nonlinear_advection_engquist_osher_operator, DiffusionOperator, L2Product,
+                                L2ProductFunctional)
+from pymor.operators.constructions import LincombOperator
 from pymor.gui.qt import PatchVisualizer
-from pymor.la.numpyvectorarray import NumpyVectorArray
+from pymor.vectorarrays.numpy import NumpyVectorArray
+from pymor.parameters.functionals import GenericParameterFunctional
 
 
-def discretize_nonlinear_instationary_advection_diffusion_fv(analytical_problem, diameter=None, nt=100, num_flux='lax_friedrichs',
-                                                   lxf_lambda=1., domain_discretizer=None, grid=None, boundary_info=None):
+def discretize_nonlinear_instationary_advection_diffusion_fv(analytical_problem, diameter=None, nt=100,
+                                                             num_flux='lax_friedrichs', lxf_lambda=1.,
+                                                             domain_discretizer=None, grid=None, boundary_info=None):
 
     assert isinstance(analytical_problem, InstationaryAdvectionDiffusionProblem)
     assert grid is None or boundary_info is not None
@@ -38,31 +41,32 @@ def discretize_nonlinear_instationary_advection_diffusion_fv(analytical_problem,
     p = analytical_problem
     
     if num_flux == 'lax_friedrichs':
-        L = nonlinear_advection_lax_friedrichs_operator(grid, boundary_info, p.flux_function, dirichlet_data=p.dirichlet_data,
-                                            lxf_lambda=lxf_lambda)
+        L = nonlinear_advection_lax_friedrichs_operator(grid, boundary_info, p.flux_function,
+                                                        dirichlet_data=p.dirichlet_data, lxf_lambda=lxf_lambda)
     else:
-        L = nonlinear_advection_engquist_osher_operator(grid, boundary_info, p.flux_function, p.flux_function_derivative,
-                                            dirichlet_data=p.dirichlet_data)
+        L = nonlinear_advection_engquist_osher_operator(grid, boundary_info, p.flux_function,
+                                                        p.flux_function_derivative, dirichlet_data=p.dirichlet_data)
 
     I = p.initial_data.evaluate(grid.quadrature_points(0, order=2)).squeeze()
     I = np.sum(I * grid.reference_element.quadrature(order=2)[1], axis=1) * (1. / grid.reference_element.volume)
-    I = NumpyVectorArray(I)
-    inject_sid(I, __name__ + '.discretize_nonlinear_instationary_advection_diffusion_fv.initial_data', p.initial_data, grid)
+    I = NumpyVectorArray(I, copy=False)
 
     D = DiffusionOperator(grid, boundary_info, p.diffusion)
-    D = type(D).lincomb(operators=[D], name='diffusion', coefficients_name='diffusion')
-    F = None if p.rhs is None else DiffusionRHSOperatorFunctional(grid, boundary_info, p.rhs, 
-                                                                  p.neumann_data, p.dirichlet_data, p.diffusion)
-    F = type(F).lincomb(operators=[F], name='rhs', coefficients_name='diffusion')
+    diffusion_functional = GenericParameterFunctional(lambda mu: mu['diffusion'], parameter_type={'diffusion': 0},
+                                                      name='diffusion')
+    D = LincombOperator(operators=[D], coefficients=[diffusion_functional], name='diffusion')
+
+    F = None if p.rhs is None else L2ProductFunctional(grid, p.rhs, diffusion_function=p.diffusion)
+    F = LincombOperator(operators=[F], coefficients=[diffusion_functional], name='rhs')
     
     products = {'l2': L2Product(grid, boundary_info)}
     visualizer = PatchVisualizer(grid=grid, bounding_box=grid.domain, codim=0)
     parameter_space = p.parameter_space if hasattr(p, 'parameter_space') else None
 
-    discretization = InstationaryImexDiscretization(explicit_operator=L, implicit_operator=D, rhs=F, 
-                                                                  initial_data=I, T=p.T, nt=nt, products=products,
-                                                                  parameter_space=parameter_space, visualizer=visualizer,
-                                                                  name='{}_FV'.format(p.name))
+    discretization = InstationaryImexDiscretization(explicit_operator=L, implicit_operator=D, rhs=F,
+                                                    initial_data=I, T=p.T, nt=nt, products=products,
+                                                    parameter_space=parameter_space, visualizer=visualizer,
+                                                    name='{}_FV'.format(p.name))
 
     return discretization, {'grid': grid, 'boundary_info': boundary_info}
 

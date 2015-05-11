@@ -17,7 +17,8 @@ from pymor.parameters.spaces import CubicParameterSpace
 class ViscousBurgersProblem(InstationaryAdvectionDiffusionProblem):
 
     def __init__(self, vx = 1., vy = 1., torus=True, initial_data='sin', 
-                 parameter_range={'exponent': (1., 2.), 'diffusion': (0.1, 1.)}, diffusion=1.0):
+                 parameter_range={'exponent': (1., 2.), 'diffusion': (0.1, 1.)},
+                 diffusion=ConstantFunction(value=1.0, dim_domain=2)):
 
         assert initial_data in ('sin', 'bump')
 
@@ -68,6 +69,6 @@ class ViscousBurgersProblem(InstationaryAdvectionDiffusionProblem):
                                              diffusion=diffusion,
                                              T=0.3, name='Viscous Burgers Problem')
  
-        self.parameter_space = CubicParameterSpace({'exponent': 0 ,'diffusion' : (1,)}, ranges=parameter_range)
+        self.parameter_space = CubicParameterSpace({'exponent': 0 ,'diffusion': 0}, ranges=parameter_range)
 
 

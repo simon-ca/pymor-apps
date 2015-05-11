@@ -11,14 +11,12 @@ from algorithms.timestepping import imex_euler
 
 from pymor.discretizations.basic import DiscretizationBase
 from pymor.operators.constructions import VectorOperator
-from pymor.la.interfaces import VectorArrayInterface
+from pymor.vectorarrays.interfaces import VectorArrayInterface
 from pymor.tools.arguments import method_arguments
 from pymor.operators.interfaces import OperatorInterface
 
 
 class InstationaryImexDiscretization(DiscretizationBase):
-    
-    sid_ignore = ('visualizer', 'cache_region', 'name')
 
     def __init__(self, T, nt, initial_data, explicit_operator, implicit_operator, rhs=None, mass=None, num_values=None,
                  products=None, parameter_space=None, estimator=None, visualizer=None, cache_region='disk',

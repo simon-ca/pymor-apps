@@ -19,7 +19,8 @@ class InstationaryAdvectionDiffusionProblem(ImmutableInterface):
                  flux_function_derivative=ConstantFunction(value=np.array([0, 0]), dim_domain=2),
                  dirichlet_data=ConstantFunction(value=0, dim_domain=2),
                  neumann_data=ConstantFunction(value=0, dim_domain=2),
-                 initial_data=ConstantFunction(dim_domain=2), T=1, diffusion=1.0, name=None):
+                 initial_data=ConstantFunction(dim_domain=2), T=1, diffusion=ConstantFunction(value=1., dim_domain=2),
+                 name=None):
         self.domain = domain
         self.rhs = rhs
         self.flux_function = flux_function
