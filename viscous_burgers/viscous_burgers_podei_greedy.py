@@ -22,7 +22,7 @@ Arguments:
 
   EXP_SNAPSHOTS     Number of snapshots for the exponent in basis generation and EI.
   
-  DIFF_SNAPSHOTS     Number of snapshots for the exponent in basis generation and EI.
+  DIFF_SNAPSHOTS     Number of snapshots for the diffusion in basis generation and EI.
   
   INIT_EISIZE     Number of inital interpolation DOFs.
   
