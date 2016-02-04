@@ -13,6 +13,8 @@ from domaintransformation.functions.basic import ProductFunction
 
 from domaintransformation.grids.transformation import DomainTransformationTriaGrid
 
+from domaintransformation.algorithms.ei import interpolate_function
+
 def discretize_elliptic_cg_ei(analytical_problem, transformation, diameter=None, domain_discretizer=None, grid=None,
                               boundary_info=None, options=None):
     """Discretizes an |EllipticProblem| using finite elements.
@@ -104,14 +106,35 @@ def discretize_elliptic_cg_ei(analytical_problem, transformation, diameter=None,
 
             assert len(diffusion_functions_) == 1
             assert diffusion_functionals_ is None
-        elif opt == "eim":
-            print("Interpolating each component of the functions separately using EIM")
-            raise NotImplementedError
+        elif opt == "mceim":
+            print("Interpolating multi-dimensional functions using MCEIM")
+            assert len(diffusion_functions) == 1
+
+            target_error = 1.0e-5
+            max_interpolation_dofs = 100
+            ei_samples = 10
+
+            func = diffusion_functions[0]
+            mus = tuple(transformation.parameter_space.sample_uniformly(ei_samples))
+            #xs = grid.quadrature_points(0, order=2)
+            #assert xs.shape[-1] == func.dim_domain
+            #xs = xs.reshape((-1, func.dim_domain))
+            #assert xs.shape[-1] == func.dim_domain
+            xs = grid.centers(0)
+            assert xs.shape[-1] == func.dim_domain
+
+            func_ei = interpolate_function(func, mus, xs, target_error, max_interpolation_dofs)
+            #todo rhs interpolation
+            rhs_ei = interpolate_function(rhs, mus, xs, target_error, max_interpolation_dofs)
+            #rhs_ei = rhs
+            diffusion_functions_ = [func_ei]
+            diffusion_functionals_ = None
+            rhs_ = rhs_ei
 
             assert len(diffusion_functions_) == 1
             assert diffusion_functionals_ is None
-        elif opt == "mceim":
-            print("Interpolating multi-dimensional functions using multi component EIM")
+        elif opt == "eim":
+            print("Interpolating each component of the functions separately using EIM")
             raise NotImplementedError
         elif opt == "eoi":
             print("Interpolationg the operators using empirical operator interpolation")
@@ -128,6 +151,7 @@ def discretize_elliptic_cg_ei(analytical_problem, transformation, diameter=None,
         discretization, data = discretize_elliptic_cg(problem, grid=grid_trafo, boundary_info=boundary_info)
         data["interpolation"] = opt
         data['transformation_grid'] = grid_trafo
+        data['reference_grid'] = grid
         discretizations.append((discretization, data))
 
     return discretizations

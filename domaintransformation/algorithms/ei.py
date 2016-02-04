@@ -1,13 +1,17 @@
 from pymor.functions.interfaces import FunctionInterface
+from pymor.functions.basic import ConstantFunction
 from domaintransformation.functions.ei import EmpiricalInterpolatedFunction
+from domaintransformation.functions.ei import EIFunction
 
 from pymor.parameters.base import Parameter
 
 from pymor.grids.interfaces import AffineGridWithOrthogonalCentersInterface
 
+from domaintransformation.functions.ei import FixedParameterFunction
+
 import numpy as np
 
-def ei_greedy_function(U, error_norm=None, target_error=None, max_interpolation_dofs=None):
+def ei_greedy_function(U, target_error=None, max_interpolation_dofs=None):
     assert isinstance(U, np.ndarray)
     assert len(U.shape) == 2 # mu x X
 
@@ -78,7 +82,7 @@ def ei_greedy_function(U, error_norm=None, target_error=None, max_interpolation_
     return interpolation_dofs, collateral_basis, data
 
 
-def mcei_greedy_function(U, error_norm=None, target_error=None, max_interpolation_dofs=None):
+def mcei_greedy_function(U, target_error=None, max_interpolation_dofs=None):
     assert isinstance(U, np.ndarray)
 
     shape_range = U.ndim-1
@@ -175,60 +179,84 @@ def interpolate_function(function, mus, xs, target_error=None, max_interpolation
 
     assert isinstance(xs, np.ndarray)
 
+    mus = tuple(mus)
+
     evaluations = np.array([function(xs, mu) for mu in mus])
 
     if function.shape_range == tuple():
-        dofs, basis, data = ei_greedy_function(evaluations, target_error=1.0e-10, max_interpolation_dofs=25)
+        dofs, basis, data = ei_greedy_function(evaluations, target_error=target_error,
+                                               max_interpolation_dofs=max_interpolation_dofs)
 
-        f = EmpiricalInterpolatedFunction(function, dofs, basis, xs, triangular=True)
+        f = EmpiricalInterpolatedFunction(function, dofs, basis, xs, triangular=False)
 
         return f
     else:
-        dofs, dofs_tuple, basis, data = mcei_greedy_function(evaluations, target_error=1.0e-10, max_interpolation_dofs=25)
+        dofs, dofs_tuple, basis, data = mcei_greedy_function(evaluations, target_error=target_error,
+                                                             max_interpolation_dofs=max_interpolation_dofs)
 
-        f = EmpiricalInterpolatedFunction(function, dofs_tuple, basis, xs, triangular=True)
+        f = EmpiricalInterpolatedFunction(function, dofs_tuple, basis, xs, triangular=False)
         return f
 
 
-
-def interpolate_function_(function, samples, grid, points="center", target_error=None, max_interpolation_dofs=None):
+def interpolate_function_analytically(function, mus, xs, target_error=None, max_interpolation_dofs=None):
     assert isinstance(function, FunctionInterface)
-    #assert function.shape_range == tuple()
+    assert function.shape_range == tuple()
 
-    assert isinstance(points, str)
-    assert points in ["center", "quadrature"]
+    mus = tuple(mus)
+    assert all([isinstance(mu, Parameter) for mu in mus])
+    assert isinstance(xs, np.ndarray)
+    assert xs.ndim == function.dim_domain
+    #assert xs.shape[1] == function.dim_domain
 
-    samples = tuple(samples)
+    interpolants_f = [ConstantFunction(value=0.0, dim_domain=function.dim_domain)]
+    interpolants_xi = [FixedParameterFunction(ConstantFunction(value=0.0), mus[0])]
+    qs = []
+    ts = []
 
-    #assert all([isinstance(mu, Parameter) for mu in samples])
-    assert isinstance(grid, AffineGridWithOrthogonalCentersInterface)
+    while True:
+        mu_m = None
+        f_max = 0
+        for mu in mus:
+            for x in xs:
+                f_eval = function(x, mu) - interpolants_f[-1](x, mu)
+                assert isinstance(f_eval, float)
+                f_eval = np.abs(f_eval)
+                if f_eval > f_max:
+                    mu_m = mu
+                    f_max = f_eval
 
-    points = grid.centers(0) if points == "center" else grid.quadrature_points(0, order=2)
-    points = points.ravel()
+        assert mu_m is not None
+        assert isinstance(mu_m, Parameter)
 
-    evaluations = np.array([function(points, mu) for mu in samples])
+        xi_m = FixedParameterFunction(function, mu_m)
 
-    if function.shape_range == tuple():
-        dofs, basis, data = ei_greedy_function(evaluations, target_error=target_error, max_interpolation_dofs=max_interpolation_dofs)
-        f = EmpiricalInterpolatedFunction(function, dofs, basis, points, triangular=True)
-    else:
-        dofs, dofs_tuple, basis, data = mcei_greedy_function(evaluations, target_error=target_error, max_interpolation_dofs=max_interpolation_dofs)
-        f = EmpiricalInterpolatedFunction(function, dofs_tuple, basis, points, triangular=True)
-    return f
+        t_m = None
+        xi_max = 0
+        for x in xs:
+            xi_eval = xi_m(x) - interpolants_xi[-1](x)
+            xi_eval = np.abs(xi_eval)
+            if xi_eval > xi_max:
+                t_m = x
+                xi_max = xi_eval
+        assert t_m is not None
+        assert isinstance(t_m, float)
 
-    """
-    mu_1 = argmax max ||f(x,mu)||
-             mu    x
+        if t_m in ts:
+            print("Using same DOF twice, Aborting...")
+            break
 
-    x_1 = argmax ||f(x,mu_1)||
-             x
+        assert t_m is not None
+        denominator = xi_m - interpolants_xi[-1]
+        numerator = xi_m(t_m) - interpolants_xi[-1](t_m)
+        q_m = denominator*(1.0/numerator)
 
-    q_1 = f(., mu_1) / f(x_1,mu_1)
+        qs.append(q_m)
+        ts.append(t_m)
 
-    """
-    mu_1_index = np.argmax(np.max(np.abs(evaluations), axis=(1,2,3)))
-    x_1_index = np.argmax(np.max(np.abs(evaluations[mu_1_index,...]), axis=(1,2)))
-    q_1 = np.einsum('ij,xjk->xik', np.linalg.inv(evaluations[mu_1_index,x_1_index,...], evaluations[mu_1_index,...]))
+        interpolants_f.append(EIFunction(function, qs, ts))
+        interpolants_xi.append(EIFunction(xi_m, qs, ts))
+
+
 
 
 

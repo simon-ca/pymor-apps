@@ -93,6 +93,6 @@ class JacobianDeterminantTransformation(FunctionBase):
         det = np.abs(det)
 
         #det = det.reshape((x.shape[0],-1))
-        assert det.shape == x.shape[:2]
+        #assert det.shape == (x.shape[0],)
 
         return det
