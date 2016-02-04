@@ -57,7 +57,7 @@ def discretize_elliptic_cg_ei(analytical_problem, transformation, diameter=None,
     # todo update pymor and handle advections and reactions functions
     assert analytical_problem.diffusion_functionals is None
     assert len(analytical_problem.diffusion_functions) == 1
-    assert analytical_problem.diffusion_functions[0] is None\
+    assert analytical_problem.diffusion_functions[0] is None \
            or isinstance(analytical_problem.diffusion_functions[0], ConstantFunction)
     # todo handle non constant right hand sides
     assert analytical_problem.rhs is None or isinstance(analytical_problem.rhs, ConstantFunction)
@@ -87,17 +87,29 @@ def discretize_elliptic_cg_ei(analytical_problem, transformation, diameter=None,
             grid, boundary_info = domain_discretizer(analytical_problem.domain, diameter=diameter)
 
     grid_trafo = DomainTransformationTriaGrid(grid, transformation)
+
+    diffusion_functions = [DiffusionTransformation(transformation)]
+    #diffusion_functionals = None
+    jac_det =  JacobianDeterminantTransformation(transformation)
+    rhs = ProductFunction(analytical_problem.rhs, jac_det)
+
     discretizations = []
+
     for opt in options:
         if opt is None:
             print("Don't interpolate the functions")
-            diffusion_functions = [DiffusionTransformation(transformation)]
-            diffusion_functionals = None
-            jac_det =  JacobianDeterminantTransformation(transformation)
-            rhs = ProductFunction(analytical_problem.rhs, jac_det)
+            diffusion_functions_ = diffusion_functions
+            diffusion_functionals_ = None
+            rhs_ = rhs
+
+            assert len(diffusion_functions_) == 1
+            assert diffusion_functionals_ is None
         elif opt == "eim":
             print("Interpolating each component of the functions separately using EIM")
             raise NotImplementedError
+
+            assert len(diffusion_functions_) == 1
+            assert diffusion_functionals_ is None
         elif opt == "mceim":
             print("Interpolating multi-dimensional functions using multi component EIM")
             raise NotImplementedError
@@ -109,8 +121,8 @@ def discretize_elliptic_cg_ei(analytical_problem, transformation, diameter=None,
         parameter_space = transformation.parameter_space
         name = analytical_problem.name
 
-        problem = EllipticProblem(domain, rhs=rhs, diffusion_functions=diffusion_functions,
-                                  diffusion_functionals=diffusion_functionals, parameter_space=parameter_space,
+        problem = EllipticProblem(domain, rhs=rhs_, diffusion_functions=diffusion_functions_,
+                                  diffusion_functionals=diffusion_functionals_, parameter_space=parameter_space,
                                   name=name)
 
         discretization, data = discretize_elliptic_cg(problem, grid=grid_trafo, boundary_info=boundary_info)
