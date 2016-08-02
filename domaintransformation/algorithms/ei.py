@@ -1,54 +1,57 @@
 from pymor.functions.interfaces import FunctionInterface
-from pymor.functions.basic import ConstantFunction
+
 from domaintransformation.functions.ei import EmpiricalInterpolatedFunction
-from domaintransformation.functions.ei import EIFunction
 
-from pymor.parameters.base import Parameter
-
-from pymor.grids.interfaces import AffineGridWithOrthogonalCentersInterface
-
-from domaintransformation.functions.ei import FixedParameterFunction
+from domaintransformation.functions.ei import EmpiricalInterpolatedProjectionFunction,\
+    EmpiricalInterpolatedProjectionFunctional
 
 import numpy as np
 
+
 def ei_greedy_function(U, target_error=None, max_interpolation_dofs=None):
     assert isinstance(U, np.ndarray)
-    assert len(U.shape) == 2 # mu x X
+    assert len(U.shape) == 2  # mu x X
 
     interpolation_dofs = np.zeros((0,), dtype=np.int32)
 
     collateral_basis = []
     max_errs = []
     triangularity_errs = []
+    _max_err_indeices = []
+    _new_dof_indices = []
+    _new_dof_values = []
 
     ERR = U
 
     while True:
-        # Calculate maximum norm
+        # Calculate maximum norm for x
         errs = np.max(np.abs(ERR), axis=1)
 
         assert len(errs.shape) == 1
         assert errs.shape == (ERR.shape[0],)
 
-        max_err_ind = np.argmax(errs)  # mu_m
+        max_err_ind = np.argmax(errs) # mu_m
         max_err = errs[max_err_ind]
 
-        if len(interpolation_dofs) >= max_interpolation_dofs:
-            print("Maximum number interpolation dofs")
+        print("Basis size: {}".format(len(interpolation_dofs)))
+        print("Max error: {}".format(max_err))
+
+        if max_interpolation_dofs is not None and len(interpolation_dofs) >= max_interpolation_dofs:
+            print("Maximum number interpolation dofs reached. Aborting...")
             break
         if target_error is not None and max_err <= target_error:
-            print("Target Error")
+            print("Target Error reached. Aborting...")
             break
 
         #EIM
-        new_vec = U[max_err_ind,...].copy()
-        assert len(new_vec.shape) == len(U.shape) - 1
+        new_vec = U[max_err_ind, ...].copy()
+        assert len(new_vec.shape) == len(U.shape) - 1 # todo rather use ndim here
         assert new_vec.shape == U.shape[1:]
 
         new_dof_index = np.argmax(np.abs(new_vec))
 
         if new_dof_index in interpolation_dofs:
-            print("DOF taken twice")
+            print("DOF taken twice. Aborting...")
             break
 
         new_dof_value = new_vec[new_dof_index]  # x_m
@@ -60,15 +63,17 @@ def ei_greedy_function(U, target_error=None, max_interpolation_dofs=None):
         new_vec *= 1 / new_dof_value  # q_m
 
         interpolation_dofs = np.hstack((interpolation_dofs, new_dof_index))
-        #interpolation_points = np.hstack(interpolation_points, )
-        #collateral_basis = np.hstack((collateral_basis, new_vec))
         collateral_basis.append(new_vec)
         max_errs.append(max_err)
 
+        _max_err_indeices.append(max_err_ind)
+        _new_dof_indices.append(new_dof_index)
+        _new_dof_values.append(new_dof_value)
+
         # update U and ERR
         new_dof_values = U[:, new_dof_index]
+        # f - I_f
         U -= np.outer(new_dof_values, new_vec)
-        #U -= new_dof_values[...,np.newaxis] * new_vec[np.newaxis,...]
 
     collateral_basis = np.array(collateral_basis)
 
@@ -77,7 +82,8 @@ def ei_greedy_function(U, target_error=None, max_interpolation_dofs=None):
     for d in range(1, len(interpolation_matrix)+1):
         triangularity_errs.append(np.max(triangularity_errors[:d, :d]))
 
-    data = {'errors': max_errs, 'triangularity_errors': triangularity_errs}
+    data = {'errors': max_errs, 'triangularity_errors': triangularity_errs, 'max_err_indices': _max_err_indeices,
+            'new_dof_indices': _new_dof_indices, 'new_dof_values': _new_dof_values}
 
     return interpolation_dofs, collateral_basis, data
 
@@ -93,6 +99,9 @@ def mcei_greedy_function(U, target_error=None, max_interpolation_dofs=None):
     collateral_basis = []
     max_errs = []
     triangularity_errs = []
+    _max_err_indices = []
+    _new_dof_indices = []
+    _new_dof_values = []
 
     ERR = U
 
@@ -108,41 +117,47 @@ def mcei_greedy_function(U, target_error=None, max_interpolation_dofs=None):
         max_err_ind = np.argmax(errs)  # mu_m
         max_err = errs[max_err_ind]
 
-        if len(interpolation_dofs) >= max_interpolation_dofs:
-            print("Maximum number interpolation dofs")
+        print("Basis size: {}".format(len(interpolation_dofs)))
+        print("Max error: {}".format(max_err))
+
+        if max_interpolation_dofs is not None and len(interpolation_dofs) >= max_interpolation_dofs:
+            print("Maximum number interpolation dofs reached. Aborting...")
             break
         if target_error is not None and max_err <= target_error:
-            print("Target Error")
+            print("Target Error reached. Aborting...")
             break
 
-        #EIM
+        # EIM
         new_vec = U[max_err_ind,...].copy()
         assert new_vec.ndim == U.ndim - 1
         assert new_vec.shape == U.shape[1:]
 
         new_dof_index = np.argmax(np.abs(new_vec))
 
-        # new_dof_indexed is a flattened index
+        # new_dof_index is a flattened index
         new_dof_index_tuple = np.unravel_index(new_dof_index, new_vec.shape)
 
         if new_dof_index in interpolation_dofs:
-            print("DOF taken twice")
+            print("DOF taken twice. Aborting...")
             break
 
         new_dof_value = new_vec[new_dof_index_tuple]  # x_m
 
         if new_dof_value == 0.:
-            print("Error Zero")
+            print("Error Zero. Aborting...")
             break
 
         new_vec *= 1 / new_dof_value  # q_m
 
         interpolation_dofs = np.hstack((interpolation_dofs, new_dof_index))
         interpolation_dofs_tuple.append(new_dof_index_tuple)
-        #interpolation_points = np.hstack(interpolation_points, )
-        #collateral_basis = np.hstack((collateral_basis, new_vec))
+
         collateral_basis.append(new_vec)
         max_errs.append(max_err)
+
+        _max_err_indices.append(max_err_ind)
+        _new_dof_indices.append(new_dof_index_tuple)
+        _new_dof_values.append(new_dof_value)
 
         # update U and ERR
         index = (slice(None),) + new_dof_index_tuple
@@ -153,112 +168,95 @@ def mcei_greedy_function(U, target_error=None, max_interpolation_dofs=None):
         assert new_dof_values.shape == (U.shape[0],)
 
         index = (Ellipsis,) + (np.newaxis,)*shape_range
-        #U -= np.outer(new_dof_values, new_vec)
-        U -= new_dof_values[index] * new_vec[np.newaxis,...]
+        U -= new_dof_values[index] * new_vec[np.newaxis, ...]
 
     collateral_basis = np.array(collateral_basis)
-    #interpolation_dofs_tuple = np.array(interpolation_dofs_tuple)
+
     interpolation_matrix = []
     for i in range(len(interpolation_dofs_tuple)):
         index = (slice(None),) + interpolation_dofs_tuple[i]
-        #interpolation_matrix = collateral_basis[:, interpolation_dofs].T
         interpolation_matrix.append(collateral_basis[index].T)
     interpolation_matrix = np.array(interpolation_matrix)
     triangularity_errors = np.abs(interpolation_matrix - np.tril(interpolation_matrix))
     for d in range(1, len(interpolation_matrix)+1):
         triangularity_errs.append(np.max(triangularity_errors[:d, :d]))
 
-    data = {'errors': max_errs, 'triangularity_errors': triangularity_errs}
+    data = {'errors': max_errs, 'triangularity_errors': triangularity_errs, 'max_err_indices': _max_err_indices,
+            'new_dof_indices': _new_dof_indices, 'new_dof_values': _new_dof_values}
 
     return interpolation_dofs, interpolation_dofs_tuple, collateral_basis, data
 
 
-def interpolate_function(function, mus, xs, target_error=None, max_interpolation_dofs=None):
-    assert isinstance(function, FunctionInterface)
-    #assert function.shape_range == tuple()
+def split_ei_function(function):
+    assert isinstance(function, EmpiricalInterpolatedFunction)
+    num_functions = len(function.interpolation_dofs)
 
-    assert isinstance(xs, np.ndarray)
+    print("Split function into {} functions/functionals".format(num_functions))
+
+    f = function.function
+    dofs = function.interpolation_dofs
+    col_basis = function.collateral_basis
+    xs = function.xs
+    tri = function.triangular
+
+    res = {'functions': [EmpiricalInterpolatedProjectionFunction(f, dofs, col_basis, xs, tri, i) for i in
+                         range(num_functions)],
+           'functionals': [EmpiricalInterpolatedProjectionFunctional(f, dofs, col_basis, xs, tri, i) for i in
+                           range(num_functions)]}
+
+    return res
+
+
+def interpolate_function(function, mus, xs=None, evaluations=None, target_error=None, max_interpolation_dofs=None, mode='discrete'):
+    import time
+    start = time.time()
+    assert isinstance(function, FunctionInterface)
+    assert mode in ['discrete']
 
     mus = tuple(mus)
 
-    evaluations = np.array([function(xs, mu) for mu in mus])
+    if evaluations is not None:
+        assert evaluations.shape == (len(mus), xs.shape[0]) + function.shape_range
+
+    if evaluations is None:
+        assert isinstance(xs, np.ndarray)
+
+        print("Evaluate function for {} parameters".format(len(mus)))
+        evaluations = []
+        for i, mu in enumerate(mus):
+            print("Evaluate function for parameter {}/{}".format(i+1, len(mus)))
+            evaluations.append(function(xs, mu))
+        evaluations = np.array(evaluations)
 
     if function.shape_range == tuple():
         dofs, basis, data = ei_greedy_function(evaluations, target_error=target_error,
                                                max_interpolation_dofs=max_interpolation_dofs)
 
-        f = EmpiricalInterpolatedFunction(function, dofs, basis, xs, triangular=False)
+        if mode == 'discrete':
+            f = EmpiricalInterpolatedFunction(function, dofs, basis, xs, triangular=False)
 
-        return f
+        stop = time.time()
+        print("Empirical Interpolation took {} seconds".format(stop-start))
+
+        return f, data
     else:
         dofs, dofs_tuple, basis, data = mcei_greedy_function(evaluations, target_error=target_error,
                                                              max_interpolation_dofs=max_interpolation_dofs)
 
-        f = EmpiricalInterpolatedFunction(function, dofs_tuple, basis, xs, triangular=False)
-        return f
+        assert len(data['new_dof_indices']) == len(data['max_err_indices']) == len(data['new_dof_values'])
 
+        max_err_indices = data['max_err_indices']
+        assert (all(index < len(mus) for index in max_err_indices))
 
-def interpolate_function_analytically(function, mus, xs, target_error=None, max_interpolation_dofs=None):
-    assert isinstance(function, FunctionInterface)
-    assert function.shape_range == tuple()
+        new_dof_indices = data['new_dof_indices']
+        assert (all(index[0] < xs.shape[0]) for index in new_dof_indices)
 
-    mus = tuple(mus)
-    assert all([isinstance(mu, Parameter) for mu in mus])
-    assert isinstance(xs, np.ndarray)
-    assert xs.ndim == function.dim_domain
-    #assert xs.shape[1] == function.dim_domain
+        new_dof_values = data['new_dof_values']
+        assert (all(isinstance(value, float)) for value in new_dof_values)
 
-    interpolants_f = [ConstantFunction(value=0.0, dim_domain=function.dim_domain)]
-    interpolants_xi = [FixedParameterFunction(ConstantFunction(value=0.0), mus[0])]
-    qs = []
-    ts = []
+        if mode == 'discrete':
+            f = EmpiricalInterpolatedFunction(function, dofs_tuple, basis, xs, triangular=False)
 
-    while True:
-        mu_m = None
-        f_max = 0
-        for mu in mus:
-            for x in xs:
-                f_eval = function(x, mu) - interpolants_f[-1](x, mu)
-                assert isinstance(f_eval, float)
-                f_eval = np.abs(f_eval)
-                if f_eval > f_max:
-                    mu_m = mu
-                    f_max = f_eval
-
-        assert mu_m is not None
-        assert isinstance(mu_m, Parameter)
-
-        xi_m = FixedParameterFunction(function, mu_m)
-
-        t_m = None
-        xi_max = 0
-        for x in xs:
-            xi_eval = xi_m(x) - interpolants_xi[-1](x)
-            xi_eval = np.abs(xi_eval)
-            if xi_eval > xi_max:
-                t_m = x
-                xi_max = xi_eval
-        assert t_m is not None
-        assert isinstance(t_m, float)
-
-        if t_m in ts:
-            print("Using same DOF twice, Aborting...")
-            break
-
-        assert t_m is not None
-        denominator = xi_m - interpolants_xi[-1]
-        numerator = xi_m(t_m) - interpolants_xi[-1](t_m)
-        q_m = denominator*(1.0/numerator)
-
-        qs.append(q_m)
-        ts.append(t_m)
-
-        interpolants_f.append(EIFunction(function, qs, ts))
-        interpolants_xi.append(EIFunction(xi_m, qs, ts))
-
-
-
-
-
-
-
+        stop = time.time()
+        print("Empirical Interpolation took {} seconds".format(stop-start))
+        return f, data

@@ -32,20 +32,21 @@ class DomainTransformationFunction(FunctionBase):
     def bounding_box(self, domain, mu):
         raise NotImplementedError
 
+
 class DiffusionTransformation(FunctionBase):
 
     def __init__(self, function):
         assert isinstance(function, DomainTransformationFunction)
 
-        # todo only function from R^2 to R^(2x2) for now
+        # only functions from R^2 -> R^(2x2) for now
         assert function.dim_domain == 2
-        assert function.shape_range == (2,2)
+        assert function.shape_range == (2, 2)
 
         self.dim_domain = function.dim_domain
         self.shape_range = function.shape_range
 
         self.function = function
-        self.build_parameter_type(inherits=[function])
+        self.build_parameter_type(inherits=(function,))
 
     def evaluate(self, x, mu=None):
         mu = self.parse_parameter(mu)
@@ -66,33 +67,26 @@ class DiffusionTransformation(FunctionBase):
         res = np.einsum('eij,ejk,e->eik', jac_inv, jac_inv_t, det)
         return res
 
-        # todo multiplication in last 2 dimensions
-        raise NotImplementedError
-        return None
+
 
 class JacobianDeterminantTransformation(FunctionBase):
 
     def __init__(self, function):
         assert isinstance(function, DomainTransformationFunction)
 
+        # only function from R^2 to R^(2x2) for now
         assert function.dim_domain == 2
-        assert function.shape_range == (2,2)
+        assert function.shape_range == (2, 2)
 
-        # todo only function from R^2 to R^(2x2) for now
         self.dim_domain = function.dim_domain
         self.shape_range = tuple()
 
         self.function = function
-        self.build_parameter_type(inherits=[function])
+        self.build_parameter_type(inherits=(function,))
 
     def evaluate(self, x, mu=None):
-        # todo fix this
-        #x_ = x.reshape((-1,2))
         mu = self.parse_parameter(mu)
         det = self.function.jacobian_determinant(x, mu)
         det = np.abs(det)
-
-        #det = det.reshape((x.shape[0],-1))
-        #assert det.shape == (x.shape[0],)
 
         return det

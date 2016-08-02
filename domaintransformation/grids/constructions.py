@@ -25,6 +25,8 @@ def flatten_grid(grid, mu):
     ----------
     grid
         The |Grid| to flatten.
+    mu
+        |Parameter|
 
     Returns
     -------

@@ -1,15 +1,10 @@
 from __future__ import absolute_import, division, print_function
 
-from itertools import izip
-from numbers import Number
-
-import numpy as np
-
 from pymor.parameters.base import ParameterType
 
 
 class ProductParameterType(ParameterType):
-    """Product of two |ParameterTypes|. Uniqueness of keys is asserted.
+    """Product of two |ParameterTypes|. Uniqueness of keys is ensured.
     Parameters
     ----------
     parameter_type_1

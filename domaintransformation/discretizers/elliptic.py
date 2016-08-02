@@ -1,19 +1,14 @@
-# This file is part of the pyMOR project (http://www.pymor.org).
-# Copyright Holders: Rene Milk, Stephan Rave, Felix Schindler
-# License: BSD 2-Clause License (http://opensource.org/licenses/BSD-2-Clause)
-#
-# Contributors: lucas-ca <lucascamp@web.de>
-
 from __future__ import absolute_import, division, print_function
 
 
-from pymor.analyticalproblems.elliptic import EllipticProblem
+from domaintransformation.analyticalproblems.rhs_decomposition import EllipticRHSDecompositionProblem
 from pymor.discretizations.basic import StationaryDiscretization
 from pymor.domaindiscretizers.default import discretize_domain_default
 from pymor.grids.boundaryinfos import EmptyBoundaryInfo
 from pymor.grids.referenceelements import line, triangle, square
 from domaintransformation.gui.qt import DomainTransformationPatchVisualizer
-from pymor.operators import cg, fv
+from pymor.operators import cg
+from domaintransformation.operators import cg as cg_rhs_decomp
 from pymor.operators.constructions import LincombOperator
 
 
@@ -50,7 +45,7 @@ def discretize_elliptic_cg(analytical_problem, diameter=None, domain_discretizer
             :boundary_info:  The generated |BoundaryInfo|.
     """
 
-    assert isinstance(analytical_problem, EllipticProblem)
+    assert isinstance(analytical_problem, EllipticRHSDecompositionProblem)
     #assert grid is not None
     assert grid is None or boundary_info is not None
     assert boundary_info is None or grid is not None
@@ -67,10 +62,10 @@ def discretize_elliptic_cg(analytical_problem, diameter=None, domain_discretizer
 
     if grid.reference_element is square:
         Operator = cg.DiffusionOperatorQ1
-        Functional = cg.L2ProductFunctionalQ1
+        Functional = cg_rhs_decomp.L2ProductFunctionalQ1
     else:
         Operator = cg.DiffusionOperatorP1
-        Functional = cg.L2ProductFunctionalP1
+        Functional = cg_rhs_decomp.L2ProductFunctionalP1
 
     p = analytical_problem
 
@@ -88,7 +83,16 @@ def discretize_elliptic_cg(analytical_problem, diameter=None, domain_discretizer
         L = Operator(grid, boundary_info, diffusion_function=p.diffusion_functions[0],
                      name='diffusion')
 
-    F = Functional(grid, p.rhs, boundary_info, dirichlet_data=p.dirichlet_data, neumann_data=p.neumann_data)
+    if p.rhs_functionals is not None:
+        #boundary treatment
+        F0 = Functional(grid, p.rhs_functions[0], boundary_info, dirichlet_data=p.dirichlet_data, neumann_data=p.neumann_data,
+                        name='rhs_boundary', clear_dirichlet=False, clear_non_dirichlet=True)
+        Fi = [Functional(grid, rhs, boundary_info, dirichlet_data=p.dirichlet_data, neumann_data=p.neumann_data,
+                         name='rhs_{}'.format(i), clear_dirichlet=True, clear_non_dirichlet=False) for i, rhs in enumerate(p.rhs_functions)]
+        F = LincombOperator(operators=[F0] + Fi, coefficients=[1.] + list(p.rhs_functionals),
+                            name='rhs')
+    else:
+        F = Functional(grid, p.rhs_functions[0], boundary_info, dirichlet_data=p.dirichlet_data, neumann_data=p.neumann_data)
 
     if grid.reference_element in (triangle, square):
         visualizer = DomainTransformationPatchVisualizer(grid=grid, bounding_box=grid.bounding_box(), codim=2)

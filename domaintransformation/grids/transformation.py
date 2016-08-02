@@ -20,6 +20,7 @@ class DomainTransformationTriaGrid(TriaGrid):
     grid
         |TriaGrid|
     transformation
+        |DomainTransformationFunction|
     """
 
     dim = 2
